@@ -102,10 +102,11 @@ insert into StudentCourseMapping (CourseId, RollNo) values (10, 10);
 
 -- TODO - Check how to handle autentication API
 CREATE TABLE Users (
-    RollNo int NOT NULL AUTO_INCREMENT,
+    Id int NOT NULL AUTO_INCREMENT,
     Name VARCHAR(120),
     EmailId VARCHAR(120),
-    PRIMARY KEY (RollNo),
+    AccessToken VARCHAR(320),
+    PRIMARY KEY (Id),
     Password VARCHAR(300)
 );
 

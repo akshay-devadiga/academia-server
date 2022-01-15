@@ -2,6 +2,12 @@ const express = require('express');
 const app = express();
 const jwt = require('jsonwebtoken');
 const mysql = require('mysql');
+var bodyParser = require('body-parser');
+
+// configure the app to use bodyParser()
+
+app.use(bodyParser.json());
+
 const VerificationHelper = require('./verificationHelper')
 const db = mysql.createConnection({
     host     : 'localhost',
@@ -22,6 +28,18 @@ app.get('/api',(req, res)=>{
     res.send("API Version 1.0");
 })
 
+app.post('/api/login',(req, res)=>{
+    let user = req.body.user;
+    let sql = `SELECT * FROM Users WHERE Name='${user.username}' AND EmailId='${user.emailId}' AND Password='${user.password}'`; 
+    db.query(sql,(err,result)=>{
+        if(err) throw err;
+        if(result.length>0){
+            res.json({accessToken:result[0].AccessToken});
+        }else{
+            res.sendStatus(404)
+        }  
+    }); 
+})
 
 app.get('/api/students',VerificationHelper.verifyToken,(req, res)=>{
     jwt.verify(req.token,'secretkey',(err,authData) =>{
@@ -59,7 +77,7 @@ app.get('/api/students',VerificationHelper.verifyToken,(req, res)=>{
 })
 
 
-app.post('/api/courses',VerificationHelper.verifyToken,(req, res)=>{
+app.get('/api/courses',VerificationHelper.verifyToken,(req, res)=>{
     jwt.verify(req.token,'secretkey',(err,authData) =>{
         if(err){
             console.log(err)
@@ -74,11 +92,7 @@ app.post('/api/courses',VerificationHelper.verifyToken,(req, res)=>{
     });
 })
 
-app.post('/api/login',(req, res)=>{
-    // Validate user with db 
-    // If Yes - return back access token and set this access token in local storage in client
-    // If No - Return 404
-})
+
 
 app.post('/api/createUser',VerificationHelper.verifyToken,(req, res)=>{
     jwt.verify(req.token,'secretkey',(err,authData) =>{
@@ -86,9 +100,14 @@ app.post('/api/createUser',VerificationHelper.verifyToken,(req, res)=>{
             console.log(err)
             res.sendStatus(403)
         }else{
-            // Get the user object from client
-            // Get Generate access token for the user
-            // Update the db with access token   
+            let user = req.body.user;
+            jwt.sign({user},'secretkey', { expiresIn: '20 days' },(err,token)=>{
+                let sql = `INSERT INTO Users (Name,EmailId,Password,AccessToken) Values('${user.username}','${user.emailId}','${12345}','${token}')`; 
+                db.query(sql,(err,result)=>{
+                    if(err) throw err;
+                    res.json({token});
+                }); 
+            });
         }
     });
 })
