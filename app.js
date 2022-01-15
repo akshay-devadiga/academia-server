@@ -92,6 +92,43 @@ app.get('/api/courses',VerificationHelper.verifyToken,(req, res)=>{
     });
 })
 
+// Get all courses for a student
+app.get('/api/students/:rollNo/courses',VerificationHelper.verifyToken,(req, res)=>{
+    jwt.verify(req.token,'secretkey',(err,authData) =>{
+        if(err){
+            console.log(err)
+            res.sendStatus(403)
+        }else{
+            let rollNo = parseInt(req.params.rollNo);
+            let sql = `SELECT c.Name,c.TotalHours,c.Thumbnail FROM Courses c, StudentCourseMapping scm WHERE scm.courseId=c.Id AND RollNo=${rollNo}`;
+            db.query(sql,(err,result)=>{
+                if(err) throw err;
+                res.json(result);
+            });     
+        }
+    });
+})
+
+// Delete course for a student
+app.delete('/api/students/:rollNo/course/:courseId',VerificationHelper.verifyToken,(req, res)=>{
+    jwt.verify(req.token,'secretkey',(err,authData) =>{
+        if(err){
+            console.log(err)
+            res.sendStatus(403)
+        }else{
+            let rollNo = parseInt(req.params.rollNo);
+            let courseId = parseInt(req.params.courseId);
+            let sql = `DELETE FROM StudentCourseMapping WHERE RollNo=${rollNo} AND CourseId=${courseId}`;
+            db.query(sql,(err,result)=>{
+                if(err) throw err;
+                res.json({message:`Course with id ${courseId} for student with roll no ${rollNo} deleted successfully`});
+            });     
+        }
+    });
+})
+
+
+// Update student
 
 
 app.post('/api/createUser',VerificationHelper.verifyToken,(req, res)=>{
