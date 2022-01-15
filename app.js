@@ -127,9 +127,31 @@ app.delete('/api/students/:rollNo/course/:courseId',VerificationHelper.verifyTok
     });
 })
 
-
-// Update student
-
+// Add new course/courses for a student
+app.post('/api/students/:rollNo/courses',VerificationHelper.verifyToken,(req, res)=>{
+    jwt.verify(req.token,'secretkey',(err,authData) =>{
+        if(err){
+            console.log(err)
+            res.sendStatus(403)
+        }else{
+            let rollNo = parseInt(req.params.rollNo);
+            let courses = req.body.courses;
+            console.log(rollNo,courses)
+            if(courses && courses.length>0){
+                courses.forEach(course=>{
+                    let sql = `INSERT INTO StudentCourseMapping (CourseId, RollNo) values (${course.id}, ${rollNo})`;
+                    db.query(sql,(err,result)=>{
+                        if(err) throw err;               
+                    });
+                });
+                res.json({message:"Courses added successfully"});
+            }else{
+                res.sendStatus(404);
+            }
+                 
+        }
+    });
+})
 
 app.post('/api/createUser',VerificationHelper.verifyToken,(req, res)=>{
     jwt.verify(req.token,'secretkey',(err,authData) =>{
