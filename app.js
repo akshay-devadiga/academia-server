@@ -73,19 +73,6 @@ app.get("/api/students", VerificationHelper.verifyToken, (req, res) => {
         db.query(innerQuery, (err, result) => {
           if (err) throw err;
           response.result = result.map(objectToCamelCase)
-        /*  if (limit < total) {
-            response.next = {
-              page: page + 1,
-              limit: limit,
-            };
-          }
-
-          if (offset > 0) {
-            response.prevous = {
-              page: page - 1,
-              limit: limit,
-            };
-          }*/
           res.json(response);
         });
       });
