@@ -4,23 +4,35 @@ const jwt = require("jsonwebtoken");
 const mysql = require("mysql");
 var bodyParser = require("body-parser");
 var cors = require("cors");
-// configure the app to use bodyParser()
 app.use(cors());
 app.use(bodyParser.json());
+const {mapKeys,camelCase} = require("lodash");
 
+function objectToCamelCase(obj) {
+    return mapKeys(obj, (v, k) => camelCase(k))
+}
 const VerificationHelper = require("./verificationHelper");
-const db = mysql.createConnection({
+var env = process.env.NODE_ENV || 'development';
+const developmentConfig = {
   host: "localhost",
   user: "root",
   password: "",
-  database: "acedemiatest",
-});
+  database: "academictest2",
+} 
+
+const producttionConfig = {
+  host: "us-cdbr-east-05.cleardb.net",
+  user: "b57f55f82a03bb",
+  password: "7349079b",
+  database: "heroku_bd4dc3bc1695a92",
+} 
+
+const db = mysql.createConnection(env=='development' ? developmentConfig : producttionConfig);
 
 db.connect((err) => {
   if (err) {
     throw err;
   }
-  console.log("mysql is connected");
 });
 
 app.get("/api", (req, res) => {
@@ -56,12 +68,12 @@ app.get("/api/students", VerificationHelper.verifyToken, (req, res) => {
         if (err) throw err;
         let response = {};
         let total = outerResult[0].total;
-        response.total = total;
+        response.totalPages = Math.ceil(total/limit);
         let innerQuery = `SELECT * FROM students LIMIT ${offset}, ${limit}`;
         db.query(innerQuery, (err, result) => {
           if (err) throw err;
-          response.result = result;
-          if (limit < total) {
+          response.result = result.map(objectToCamelCase)
+        /*  if (limit < total) {
             response.next = {
               page: page + 1,
               limit: limit,
@@ -73,13 +85,43 @@ app.get("/api/students", VerificationHelper.verifyToken, (req, res) => {
               page: page - 1,
               limit: limit,
             };
-          }
-          res.send(response);
+          }*/
+          res.json(response);
         });
       });
     }
   });
 });
+
+app.patch("/api/students/:rollNo", VerificationHelper.verifyToken, (req, res) => {
+    jwt.verify(req.token, "secretkey", (err, authData) => {
+      if (err) {
+        console.log(err);
+        res.sendStatus(403);
+      } else {
+        console.log(req.params,req.body);
+        let rollNo =  parseInt(req.params.rollNo);
+        let outerQuery = `DELETE from StudentCourseMapping WHERE RollNo=${rollNo}`;
+        db.query(outerQuery, (err, result) => {
+          if (err) throw err;
+          let courses = req.body.courses;
+          console.log(courses,"courses");
+          if (courses && courses.length > 0) {
+            courses.forEach((course) => {
+             console.log(course,"course");
+              let innerQuery = `INSERT INTO StudentCourseMapping (CourseId, RollNo) values (${course.id}, ${rollNo})`;
+              db.query(innerQuery, (err, result) => {
+                if (err) throw err;
+              });
+            });
+            res.json({ message: "Student record updated successfully" });
+          } else {
+            res.sendStatus(404);
+          }
+        });
+      }
+    });
+  });
 
 app.get("/api/courses", VerificationHelper.verifyToken, (req, res) => {
   jwt.verify(req.token, "secretkey", (err, authData) => {
@@ -90,6 +132,7 @@ app.get("/api/courses", VerificationHelper.verifyToken, (req, res) => {
       let sql = "SELECT * FROM courses";
       db.query(sql, (err, result) => {
         if (err) throw err;
+        result=result.map(objectToCamelCase)
         res.send(result);
       });
     }
@@ -98,7 +141,7 @@ app.get("/api/courses", VerificationHelper.verifyToken, (req, res) => {
 
 // Get all courses for a student
 app.get(
-  "/api/students/:rollNo/courses",
+  "/api/students/:rollNo",
   VerificationHelper.verifyToken,
   (req, res) => {
     jwt.verify(req.token, "secretkey", (err, authData) => {
@@ -107,12 +150,19 @@ app.get(
         res.sendStatus(403);
       } else {
         let rollNo = parseInt(req.params.rollNo);
-        let sql = `SELECT c.Name,c.TotalHours,c.Thumbnail FROM Courses c, StudentCourseMapping scm WHERE scm.courseId=c.Id AND RollNo=${rollNo}`;
-        db.query(sql, (err, result) => {
+        let outerQuery = `SELECT * FROM Students WHERE RollNo=${rollNo}`;
+        db.query(outerQuery, (err, outerQueryResult) => {
           if (err) throw err;
-          res.json(result);
+          outerQueryResult = outerQueryResult.map(objectToCamelCase)
+          let studentBasicInfo = outerQueryResult[0];
+          let innerQuery = `SELECT c.id,c.Name,c.TotalHours,c.Thumbnail FROM Courses c, StudentCourseMapping scm WHERE scm.courseId=c.Id AND RollNo=${rollNo}`;
+            db.query(innerQuery, (err, innerQueryResult) => {
+            if (err) throw err;
+            let result = {...studentBasicInfo,courses:innerQueryResult.map(objectToCamelCase)};
+            res.json(result);
+            });
         });
-      }
+    }
     });
   }
 );
@@ -153,7 +203,6 @@ app.post(
       } else {
         let rollNo = parseInt(req.params.rollNo);
         let courses = req.body.courses;
-        console.log(rollNo, courses);
         if (courses && courses.length > 0) {
           courses.forEach((course) => {
             let sql = `INSERT INTO StudentCourseMapping (CourseId, RollNo) values (${course.id}, ${rollNo})`;
@@ -195,4 +244,7 @@ app.post("/api/createUser", VerificationHelper.verifyToken, (req, res) => {
   });
 });
 
-app.listen(3000);
+const PORT = process.env.PORT || 3000;
+app.listen(PORT, () => {
+  console.log(`Server is running on port ${PORT}.`);
+});
