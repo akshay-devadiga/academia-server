@@ -4,7 +4,18 @@ const jwt = require("jsonwebtoken");
 const mysql = require("mysql");
 var bodyParser = require("body-parser");
 var cors = require("cors");
-app.use(cors());
+const domainsFromEnv = process.env.CORS_DOMAINS || "";
+const corsOptions = {
+  origin: function (origin, callback) {
+    if (!origin || domainsFromEnv==origin) {
+      callback(null, true)
+    } else {
+      callback(new Error("Not allowed by CORS"))
+    }
+  },
+  credentials: true,
+}
+app.use(cors(corsOptions))
 app.use(bodyParser.json());
 const {mapKeys,camelCase} = require("lodash");
 
@@ -12,7 +23,9 @@ function objectToCamelCase(obj) {
     return mapKeys(obj, (v, k) => camelCase(k))
 }
 const VerificationHelper = require("./verificationHelper");
+
 var env = process.env.NODE_ENV || 'development';
+
 const developmentConfig = {
   host: "localhost",
   user: "root",
